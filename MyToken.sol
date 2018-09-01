@@ -3,6 +3,7 @@ pragma solidity ^0.4.24;
 pragma experimental ABIEncoderV2;
 
 import "./MyToken.sol";
+import "./Equipment.sol";
 
 interface token {
     function transfer(address receiver, uint amount) external;
@@ -11,16 +12,16 @@ interface token {
 contract owned {
     address public owner;
 
-    function owned() {
+    function owned() public {
         owner = msg.sender;
     }
 
     modifier onlyOwner {
-        require(msg.sender == owner);
+        require(msg.sender == owner, "Only owner can call this");
         _;
     }
 
-    function transferOwnership(address newOwner) onlyOwner {
+    function transferOwnership(address newOwner) public onlyOwner {
         owner = newOwner;
     }
 }
@@ -32,25 +33,24 @@ contract MyToken is owned {
 
     event Transfer(address indexed from, address indexed to, uint256 value);
 
-
-    function MyToken(
+    constructor(
         uint256 initialSupply,
         string tokenName,
         uint8 decimalUnits,
         string tokenSymbol,
         address centralMinter
-    ) {
+    ) public {
         totalSupply = initialSupply;
         if(centralMinter != 0) owner = centralMinter;
     }
 
     uint public minBalanceForAccounts;
 
-    function setMinBalance(uint minimumBalanceInFinney) onlyOwner {
-        minBalanceForAccount = minimumBalanceInFinney * 1 finney;
+    function setMinBalance(uint minimumBalanceInFinney) public onlyOwner {
+        minBalanceForAccounts = minimumBalanceInFinney * 1 finney;
     }
 
-    function mintToken(address target, uint256 mintedAmount) onlyOwner {
+    function mintToken(address target, uint256 mintedAmount) public onlyOwner {
         balanceOf[target] += mintedAmount;
         totalSupply += mintedAmount;
         emit Transfer(0, owner, mintedAmount);
@@ -63,53 +63,56 @@ contract MyToken is owned {
     //setPrices(1000000000000000,500000000000000)
 
     //Set prices by owner
-    function setPrices(uint256 newSellPrice, uint256 newBuyPrice) onlyOwner {
+    function setPrices(uint256 newSellPrice, uint256 newBuyPrice) public onlyOwner {
         sellPrice = newSellPrice;
         buyPrice = newBuyPrice;
     }
 
     //Buy Tokens by sending Ethereum to contract
-    function buy() payable returns (uint amount) {
+    function buy() public payable returns (uint256 amount) {
         amount = msg.value / buyPrice;
-        _transfer(this, msg.sender, amount);
+        transfer(this, msg.sender, amount);
         return amount;
     }
 
     //Sell Tokens and get ethereum back
-    function sell(uint amount) returns (uint amount) {
-        require(balanceOf[msg.sender] >= amount);
+    function sell(uint256 amount) public returns (uint256) {
+        require(balanceOf[msg.sender] >= amount,"Not enough money");
         balanceOf[this] += amount;
         balanceOf[msg.sender] -= amount;
-        revenue = amount * sellPrice;
+        uint256 revenue = amount * sellPrice;
         msg.sender.transfer(revenue);
-        Transfer(msg.sender, this, amount);
+        emit Transfer(msg.sender, this, amount);
         return revenue;
     }
 
     function transfer(address _to, uint256 _value) public {
         /* Check if sender has balance and for overflows */
-        require(balanceOf[msg.sender] >= _value && balanceOf[_to] + _value >= balanceOf[_to]);
+        require(balanceOf[msg.sender] >= _value && balanceOf[_to] + _value >= balanceOf[_to], "Insufficient balance");
 
         /* Add and subtract new balances */
         balanceOf[msg.sender] -= _value;
         balanceOf[_to] += _value;
         /* Notify anyone listening that this transfer took place */
         if(_to.balance<minBalanceForAccounts) {
-            _to.send(sell((minBalanceForAccounts - _to.balance) / sellPrice));
+            //_to.send(sell((minBalanceForAccounts - _to.balance) / sellPrice));
+            emit Transfer(msg.sender,_to,(sell((minBalanceForAccounts - _to.balance) / sellPrice)));
+        } else {
+            emit Transfer(msg.sender, _to, _value);
         }
-        emit Transfer(msg.sender, _to, _value);
+
     }
 }
 
 contract Game {
     
-     constructor() public {
+    constructor() public {
         id = 0;
         latestblock = block.number;
     }
     
     //Called once Ether is sent to the account.
-    function () payable public {
+    function () public payable {
         uint amount = msg.value;
         balanceOf[msg.sender] += amount;
         amountRaised += amount;
@@ -117,7 +120,6 @@ contract Game {
         emit FundTransfer(msg.sender, amount, true);
     }
 
-    mapping(address=>Player)Players;
     mapping(address=>Gladiator[])OwnedGladiators;
     mapping(uint=>Gladiator)Gladiators;
 
@@ -188,7 +190,7 @@ contract Game {
         g.Level = 0;
         g.Experience = 0;
         
-        g.Birth = now;
+        g.Birth = block.number;
         id += 1;
         g.id = id;
         Gladiators[id] = g;
@@ -196,7 +198,7 @@ contract Game {
     }
     
     modifier IsAlive(Gladiator _g) {
-        require(_g.CurrentHealth > 0);
+        require(_g.CurrentHealth > 0, "Health is less than 0");
         _;
     }
 
@@ -204,26 +206,26 @@ contract Game {
     function AuctionGladiator() public {
     }
     
-    function LevelUp(Gladiator _g) isAlive(g) public returns(bool) {
+    function LevelUp(Gladiator _g) public isAlive(g) returns(bool) {
         if(_g.Experience > ExperienceToNextLevel(g.Level)) {
             _g.Experience = _g.Experience - ExperienceToNextLevel(g.Level);
             _g.Level = _g.Level + 1;
         }
     }
 
-    function IncrementUnspentAttributePoints(Gladiator _g) isAlive(g) {
-        _g.UnspentAttributePoints +=3;
+    function IncrementUnspentAttributePoints(Gladiator _g) internal isAlive(g) {
+        _g.UnspentAttributePoints += 3;
     }
 
-    function SpendAttributePoint(Gladiator _g, String _s) isAlive(g) public {
-        require(_g.UnspentAttributePoints > 0);
+    function SpendAttributePoint(Gladiator _g, String _s) public isAlive(g) {
+        require(_g.UnspentAttributePoints > 0, "You have too few attribute points");
         if(_s == "Strength") { 
             _g.Strength += 1;
             _g.UnspentAttributePoints -= 1;
             }
         else if(_s == "Dexterity") {
-             _g.Dexterity += 1;
-             _g.UnspentAttributePoints -= 1;
+            _g.Dexterity += 1;
+            _g.UnspentAttributePoints -= 1;
         }
         else if(_s == "Toughness") { 
             _g.Toughness += 1;
@@ -231,51 +233,53 @@ contract Game {
         }
     }
 
-    function ExperienceToNextLevel(uint256 _level) returns public pure (uint256) {
-        require(_level > 0);
+    function ExperienceToNextLevel(uint256 _level) public pure returns(uint256) {
+        require(_level > 0, "Level can't be less than 0");
         return (_level^1.2)*100;
     }
 
     
-    function GetExperience(Gladiator _g, uint256 _amount) returns public pure {
+    function GetExperience(Gladiator _g, uint256 _amount) internal {
         _g.Experience += _amount;
     }
 
-    function DealDamage(Gladiator _a, Gladiator _b) IsAlive(_a) IsAlive(_b) {
+    function DealDamage(Gladiator _a, Gladiator _b) internal IsAlive(_a) IsAlive(_b) {
         while(_a.CurrentHealth > 0 && _b.CurrentHealth > 0) {
             _a.CurrentHealth -= _b.Damage;
             _b.CurrentHealth -= _a.Damage;
         } 
-        do {
-            if(_a.CurrentHealth < 0) {
-                KillGladiator(_a);
-                _b.Experience += CalculateExperienceFromGladiator(_a);
-                LevelUp(_b);
-            }
-            if(_b.CurrentHealth < 0) {
-                KillGladiator(_b);
-                _a.Experience += CalculateExperienceFromGladiator(_b);
-                LevelUp(_a);
-            }
+        if(_a.CurrentHealth < 0) {
+            KillGladiator(_a);
+            _b.Experience += CalculateExperienceFromGladiator(_a);
+            LevelUp(_b);
+        }
+        if(_b.CurrentHealth < 0) {
+            KillGladiator(_b);
+            _a.Experience += CalculateExperienceFromGladiator(_b);
+            LevelUp(_a);
         }
     }
 
-    function KillGladiator(_g) {
+    function KillGladiator(_g) internal {
         Gladiators[_g.id].IsAlive = false;
     }
 
-    function CalculateExperienceFromGladiator(_g) returns public pure (uint256) {
+    function CalculateExperienceFromGladiator(_g) public pure returns (uint256) {
         return (_g.Strength+_g.Dexterity+_g.Toughness)*_g.Level;
     } 
 
 
-    if(block.number > latestblock) {
-        Regenerate();
-        latestblock = block.number;
+    //TODO: Find out where to call this to make sure it's called every block
+    function CheckRegenerate() public {
+        if (block.number > latestblock) {
+            Regenerate();
+            latestblock = block.number;
+        }
     }
 
+
     //Gain hp back with incremental blocks.
-    function Regenerate(Gladiator _g) {
+    function Regenerate(Gladiator _g) internal {
         if(_g.CurrentHealth > _g.Health) {
             _g.CurrentHealth += 1*_g.Level;
             if (_g.CurrentHealth <= _g.Health) {
@@ -284,18 +288,20 @@ contract Game {
         }
     }
     
-    function Fight(FightType _f, Gladiator _g) {
+    function Fight(FightType _f, Gladiator _g) public {
         if(_f == FightType.PRACTICE) {
-            transfer(owner,)
-        } else if(_f == FightType.MONSTER) {
-
+            transfer(owner,1000);
+        } 
+        else if(_f == FightType.MONSTER) {
+            //TODO Monster fight
             
         } else if(_f == FightType.PLAYER) {
             //Choose Player, return b.
             //TODO:Check dodge chance
             //TODO:Check critchance
-            DealDamage()
-        } else {
+            DealDamage();
+        } 
+        else {
             //ERROR
         }
     }
@@ -303,7 +309,7 @@ contract Game {
     uint256 constant RES_COST = 500; 
 
     //Purchase a resurrectionstone and resurrect target gladiator.
-    function ResurrectionStone(uint256 _gladiatorindex) {
+    function ResurrectionStone(uint256 _gladiatorindex) public {
         transfer(owner, RES_COST);
         Gladiators[_gladiatorindex].IsAlive = true; 
     }
@@ -313,13 +319,16 @@ contract Game {
     
     function rand() private view returns (uint256){
         uint256 seedInt = uint256(seedHash)/2;
-        seedInt += now;
+        seedInt += block.timestamp;
         return uint256(sha256(abi.encodePacked(seedInt)));
     }
     
 
-    function GetPlayer(address _a) public view returns (Gladiator[], uint256) {
-        return _a.OwnedGladiators, _a.Token;
+    function GetPlayerGladiators(address _a) public view returns (Gladiator[]) {
+        return _a.OwnedGladiators;
+    }
+    function GetPlayerBalance(address _a) public view returns (uint256) {
+        return _a.Token;
     }
 
 
@@ -328,57 +337,57 @@ contract Game {
     }
     
     //Primary Attributes
-    function GetStrength(Gladiator _g) pure public returns(uint256) { 
+    function GetStrength(Gladiator _g)  public pure returns(uint256) { 
         return _g.Strength;
     }
     
-    function GetDexterity(Gladiator _g) pure public returns(uint256) { 
+    function GetDexterity(Gladiator _g) public pure returns(uint256) { 
         return _g.Dexterity;
     }
     
-    function GetToughness(Gladiator _g) pure public returns(uint256) { 
+    function GetToughness(Gladiator _g) public pure returns(uint256) { 
         return _g.Toughness;
     }
 
-    function GetLevel(Gladiator _g) pure public returns(uint256) { 
+    function GetLevel(Gladiator _g) public pure returns(uint256) { 
         return _g.Level;
     }
     
-    function GetExperience(Gladiator _g) pure public returns(uint256) { 
+    function GetExperience(Gladiator _g) public pure returns(uint256) { 
         return _g.Experience;
     }
     
     //Secondary Attributes
-    function GetInitialHealth(uint256 _t) pure private returns (uint256) {
+    function GetInitialHealth(uint256 _t) private pure returns (uint256) {
         return _t*2;
     }
-    function GetInitialDamage(uint256 _s) pure private returns(uint256) { 
+    function GetInitialDamage(uint256 _s) private pure returns(uint256) { 
         return _s*2;
     }
-    function GetInitialCritChance(uint256 _d) pure private returns(uint256) { 
+    function GetInitialCritChance(uint256 _d) private pure returns(uint256) { 
         return _d*2;
     }
-    function GetInitialDodgeChance(uint256 _d) pure public returns(uint256) { 
+    function GetInitialDodgeChance(uint256 _d) public pure returns(uint256) { 
         return _d*2;
     }
 
-    function GetCurrentHealth(Gladiator _g) pure public returns (uint256) {
+    function GetCurrentHealth(Gladiator _g) public pure returns (uint256) {
         return _g.CurrentHealth;
     }
     
-    function GetCurrentDamage(Gladiator _g) pure public returns (uint256) {
+    function GetCurrentDamage(Gladiator _g) public pure returns (uint256) {
         return _g.Damage;
     }
     
-    function GetCurrentCritChance(Gladiator _g) pure public returns (uint256) {
+    function GetCurrentCritChance(Gladiator _g) public pure returns (uint256) {
         return _g.CritChance;
     }
     
-    function GetCurrentDodgeChance(Gladiator _g) pure public returns (uint256) {
+    function GetCurrentDodgeChance(Gladiator _g) public pure returns (uint256) {
         return _g.DodgeChance;
     }
 
-    function GetAge(Gladiator _g) pure public returns (uint256) {
+    function GetAge(Gladiator _g) public pure returns (uint256) {
         return block.number - _g.age; 
     }
 } 

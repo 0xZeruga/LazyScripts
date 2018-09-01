@@ -40,7 +40,12 @@ contract Shop {
         //TODO: Add plenty of cool items.
     }
 
-    function AddItem(string a, string b, string c, uint256 d, uint256 e, uint256 f, uint256 g, uint256 h, uint256 i, uint256 j, uint256 k) public isOwner() {
+    function AddItem(
+        string a, string b, string c,
+        uint256 d, uint256 e, uint256 f,
+        uint256 g, uint256 h, uint256 i,
+        uint256 j, uint256 k)
+        public isOwner() {
         Item storage n = Item(a,b,c,d,e,f,g,h,i,j,k);
         ItemsInShop.push(n);
     }
@@ -56,9 +61,7 @@ contract Shop {
         Gladiator glad = [msg.sender].OwnedGladiators[_gladindex];
         string item = GetItemType();
 
-        if(CheckSlotsEmpty(glad,item)) {
-            //Destroy Item
-            //emit warning
+        if(CheckSlotsEmpty(glad,item)){
         } 
         else {
             //Equip item.
