@@ -173,6 +173,70 @@ contract Game {
         
     }
 
+    event gladiatorinfo(
+        uint256 Strength,
+        uint256 Toughness,
+        uint256 Dexterity,
+        
+        uint256 Health,
+        uint256 CurrentHealth,
+
+        uint256 Damage,
+        uint256 DodgeChance,
+        uint256 CritChance,
+        
+        uint256 Level,
+        uint256 Experience,
+    
+        uint256 Birth,
+    
+        uint256 UnspentAttributePoints,
+        //uint256 id,
+
+        Item head,
+        Item chest,
+        Item hands,
+        Item legs,
+        Item boots,
+        Item mainhand,
+        Item offhand,
+        Item twohand,
+        Item ring,
+        Item ring2,
+        Item amulet
+        //address gladiatorowner
+    );
+
+    //Emit where gladiatorstats are updated.
+
+    function ShoutGladiatorInfo(uint256 _id) public {
+        var str = GetStrength(Gladiators[_id]);
+        var tou = GetToughness(Gladiators[_id]);
+        var dex = GetDexterity(Gladiators[_id]);
+        var hp = GetHealth(Gladiators[_id]);
+        var chp = GetCurrentHealth(Gladiators[_id]);
+        var dmg = GetCurrentDamage(Gladiators[_id]);
+        var dod = GetCurrentDodgeChance(Gladiators[_id]);
+        var crit =GetCurrentCritChance(Gladiators[_id]);
+
+        var age = GetAge(Gladiators[_id]);
+        var uap = GetUnspentAttributePoints(Gladiators[_id]);
+
+        var head = GetItem(_id, "HEAD");
+        var chest = GetItem(_id, "CHEST");
+        var hands = GetItem(_id, "HANDS");
+        var legs = GetItem(_id, "LEGS");
+        var boots = GetItem(_id, "BOOTS");
+        var mainhand = GetItem(_id, "MAINHAND");
+        var offhand = GetItem(_id, "OFFHAND");
+        var twohand = GetItem(_id, "TWOHAND");
+        var ring = GetItem(_id, "RING");
+        var ring2 = GetItem(_id, "RING");
+        var amulet = GetItem(_id, "AMULET");
+        
+
+        emit gladiatorinfo(str,tou,dex,hp,chp,dmg,dod,crit,age,uap,head,chest,hands,legs,boots,mainhand,offhand,twohand,ring,ring2,amulet);
+    }
     //Modifier for Gladiator owner only actions.
     
     function NewGladiator() public returns (Gladiator){
@@ -389,5 +453,13 @@ contract Game {
 
     function GetAge(Gladiator _g) public pure returns (uint256) {
         return block.number - _g.age; 
+    }
+
+    function GetUnspentAttributePoints(Gladiator _g) public pure returns (uint256) {
+        return _g.UnspentAttributePoints;
+    }
+
+    function GetItem(uint256 _g,string _s) public view returns (Item) {
+        return ItemsOnGladiator[_g][_s];
     }
 } 
