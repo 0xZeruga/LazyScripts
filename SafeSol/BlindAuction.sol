@@ -136,7 +136,7 @@ contract BlindAuction {
         public
         onlyAfter(revealEnd)
     {
-        require("Must have ended",!ended);
+        require(!ended,"Must have ended");
         emit AuctionEnded(highestBidder, highestBid);
         ended = true;
         beneficiary.transfer(highestBid);
