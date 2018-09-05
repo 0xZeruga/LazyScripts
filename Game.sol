@@ -1,60 +1,69 @@
 
 ///TODO Refactor this class
+//GOAL 500 lines.
+//TODO Auction
 
 pragma solidity ^0.4.24;
 
 import "./SafeSol/StorageState.sol";
+import "./SafeSol/Ownable.sol";
 
-contract Game is StorageState{
+/// @author Jacob Eriksson
+contract Game is StorageState, Ownable {
     
-    constructor() public {
-        id = 0;
-        latestblock = block.number;
-    }
-    
-    bytes32 private seedHash;
-    
-    uint256 public latestblock;
-
-    uint public price;
-    token public tokenReward;
- 
     ///AUCTION
     //TODO AuctionGladiator
     function AuctionGladiator(uint256 _g) public {
-        require(gladiator(_g).state == GladiatorState.IDLE);
+        require(GetGladiator(_g).state == GladiatorState.IDLE);
     }
     
     ///EXPERIENCE && LEVELIN
-    function LevelUp(Gladiator _g) public isAlive(g) returns(bool) {
-        require(_g.state == GladiatorState.IDLE, "Gladiator has to be idle");
-        if(_g.Experience > ExperienceToNextLevel(g.Level)) {
-            _g.Experience = _g.Experience - ExperienceToNextLevel(g.Level);
-            _g.Level = _g.Level + 1;
-            IncrementUnspentAttributePoints(_g);
+
+    uint256 constant POINTS_ON_LEVELUP = 3;
+
+    function LevelUp(bytes32 _g) public returns (bool) {
+        Gladiator g = [msg.sender].OwnedGladiators[_g];
+        require(g.state == GladiatorState.IDLE, "Gladiator has to be idle");
+        if(g.Experience > ExperienceToNextLevel(g.Level)) {
+            g.Experience = g.Experience - ExperienceToNextLevel(g.Level);
+            g.Level = g.Level + 1;
+            IncrementUnspentAttributePoints(g, POINTS_ON_LEVELUP);
             return true;
         }
         return false;
     }
 
-    function IncrementUnspentAttributePoints(Gladiator _g) internal isAlive(g) {
-        _g.UnspentAttributePoints += 3;
+    function IncrementUnspentAttributePoints(bytes32 _g, uint256 amount) internal {
+        Gladiator g = [msg.sender].OwnedGladiators[_g];
+        g.UnspentAttributePoints += amount;
     }
 
-    function SpendAttributePoint(Gladiator _g, String _s) public isAlive(g) {
-        require(_g.UnspentAttributePoints > 0, "You have too few attribute points");
+    function SpendAttributePoint(bytes32 _g, string _s) public {
+        Gladiator g = [msg.sender].OwnedGladiators[_g];
+        require(g.UnspentAttributePoints > 0, "You have too few attribute points");
         if(_s == "Strength") { 
-            _g.Strength += 1;
-            _g.UnspentAttributePoints -= 1;
+            g.Strength += 1;
+            g.UnspentAttributePoints -= 1;
             }
         else if(_s == "Dexterity") {
-            _g.Dexterity += 1;
-            _g.UnspentAttributePoints -= 1;
+            g.Dexterity += 1;
+            g.UnspentAttributePoints -= 1;
         }
         else if(_s == "Toughness") { 
-            _g.Toughness += 1;
-            _g.UnspentAttributePoints -= 1;
+            g.Toughness += 1;
+            g.UnspentAttributePoints -= 1;
         }
+    }
+
+    function CheckSpendableAttributePoints(bytes32 _g, uint256 str, uint256 dex, uint256 tou) public {
+        Gladiator g = [msg.sender].OwnedGladiators[_g];
+        uint256 sum = str+dex+tou;
+        require(g.GetUnspentAttributePoints >= sum);
+        g.strength += str;
+        g.dexterity += dex;
+        g.toughness += tou;
+        g.IncrementUnspentAttributePoints(_g, -sum);
+        [msg.sender].OwnedGladiators[_g] = g;
     }
 
     function ExperienceToNextLevel(uint256 _level) public pure returns(uint256) {
@@ -62,48 +71,16 @@ contract Game is StorageState{
         return (_level^1.2)*100;
     }
 
-    
-    function GetExperience(Gladiator _g, uint256 _amount) internal {
-        _g.Experience += _amount;
+    function (uint256 _g, uint256 _amount) internal {
+        _storage.GetGladiator(_id).Experience += _amount;
     }
 
-
-
-    function CalculateExperienceFromGladiator(_g) public pure returns (uint256) {
-        return (_g.Strength+_g.Dexterity+_g.Toughness)*_g.Level;
-    } 
-
-
-    ///REGENERATION
-    //TODO: Find out where to call this to make sure it's called every block
-    function CheckRegenerate() public {
-        if (block.number > latestblock) {
-            Regenerate();
-            latestblock = block.number;
-        }
-    }
-
-
-    //Gain hp back with incremental blocks.
-    function Regenerate(Gladiator _g) internal {
-        if(_g.CurrentHealth > _g.Health) {
-            _g.CurrentHealth += 1*_g.Level;
-            if (_g.CurrentHealth <= _g.Health) {
-                _g.CurrentHealth = _g.Health;
-            }
-        }
+    function CalculateExperienceFromFight(uint256 hp, uint256 dmg, uint256 level) public pure returns (uint256) {
+       return (hp+dmg)*level;
     }
     
     ///GLADIATOR
-      enum GladiatorState {
-        PRACTICE, 
-        FMONSTER,
-        FPLAYER,
-        IDLE
-    }
-
-      //Emit where gladiatorstats are updated.
-
+    //Emit where gladiatorstats are updated.
     function ShoutGladiatorInfo(uint256 _id) public {
         name = GetName(Gladiators[_id]);
         str = GetStrength(Gladiators[_id]);
@@ -132,16 +109,8 @@ contract Game is StorageState{
 
         state = GetState(Gladiators[_id]);
         
-
         emit gladiatorinfo(name,str,tou,dex,hp,chp,dmg,dod,crit,age,uap,head,chest,hands,legs,boots,mainhand,offhand,twohand,ring,ring2,amulet);
     }
-    //Modifier for Gladiator owner only actions.
-
-    modifier IsAlive(Gladiator _g) {
-        require(_g.CurrentHealth > 0, "Health is less than 0");
-        _;
-    }
-
 
     function AddNewGladiatorToStorage(address _sender, string name) public {
 
@@ -149,9 +118,9 @@ contract Game is StorageState{
         g.owner = [msg.sender];
         g.name = _name;
 
-        g.strength = rand()%MAX_NUM+1;
-        g.dexterity = rand()%MAX_NUM+1;
-        g.toughness = rand()%MAX_NUM+1;
+        g.strength = 5;
+        g.dexterity = 5;
+        g.toughness = 5;
         g.health = GetHealth();
         g.currentHealth = g.Health;
         g.damage = g.GetInitialDamage();
@@ -160,97 +129,45 @@ contract Game is StorageState{
 
         g.level = 0;
         g.experience = 0;
-        g.unspentAttributePoints = 0;
+        g.unspentAttributePoints = 10;
 
         g.birth = block.number;
-        setGladiatorID();
-        g.id = getGladiatorID();
+        _storage.setGladiatorID();
+        g.id = _storage.getGladiatorID();
+
+        g.killedGladiators = 0;
+        g.killedMonster = 0;
 
         g.state = GladiatorState.IDLE;
         g.items = Item[];
 
-        [msg.sender].Gladiators[g.id] = g;
-        _storage.setGladiator(g.name, g);
+        _storage.msg.sender.OwnedGladiators[g.id] = g;
+        _storage.setGladiator(g.id, g);
     }
 
-    function DeleteGladiator(address _owner) public {
-        require(_owner == g.owner);
-        //TODO:Delete.
+    function DeleteGladiator(uint256 _id) public {
+        require([msg.sender] == _storage.GetGladiator(_id).owner);
+        delete _storage._gladiatorStorage[_id];
+        delete _storage.msg.sender.OwnedGladiators[_id];
     }
 
-    struct Gladiator {
-
-        address owner;
-        string name;
-
-        uint256 strength;
-        uint256 toughness;
-        uint256 dexterity;
-        uint256 health;
-        uint256 currentHealth;
-        uint256 damage;
-        uint256 dodgeChance;
-        uint256 critChance;
-        
-        uint256 level;
-        uint256 experience;
-        uint256 unspentAttributePoints;
-    
-        uint256 age; //Current Block minus birth.
-        uint256 birth;
-        uint256 id;
-
-        Item[] items;
-        GladiatorState state;
+    function size() public returns (uint) {
+        return AllGladiators.length;
     }
 
-    event gladiatorinfo(
-
-        string name,
-        address gladiatorowner,
-
-        uint256 strength,
-        uint256 toughness,
-        uint256 dexterity,
-        uint256 health,
-        uint256 currentHealth,
-        uint256 damage,
-        uint256 dodgeChance,
-        uint256 critChance,
-        
-        uint256 level,
-        uint256 experience,
-        uint256 unspentAttributePoints,
-    
-        uint256 birth,
-        uint256 id,
-
-        Item head,
-        Item chest,
-        Item hands,
-        Item legs,
-        Item boots,
-        Item mainhand,
-        Item offhand,
-        Item twohand,
-        Item ring,
-        Item ring2,
-        Item amulet,
-
-        GladiatorState state
-    );
-
-    ///MONSTER
-        constructor() public {
-        AddMonsterToStorage("Goblin Warrior", "A tiny greenskin with a wooden spear", "1-3",10,3,4,4);
-        AddMonsterToStorage("Cyclop", "A 15 feet one-eyed giant with leatherlike skin", "8-11",120,25,20,5);
+    function GetAllGladiators() public {
+        for(i = 0; i < AllGladiators.size(); i++) {
+           _storage.GetGladiator(i);
+        }
     }
+
+
 
     function AddMonsterToStorage(
         string _name, string _description,
         string _levelspan, uint256 _health,
         uint256 _dmg, uint256 _crit, 
-        uint256 _dodge) public isOwner() {
+        uint256 _dodge) public onlyOwner() {
 
         Monster memory m;
         m.name = _name;
@@ -265,49 +182,21 @@ contract Game is StorageState{
         emit MonsterInfo(m.name,m.description,m.levelspan,m.health,m.damage,m.crit,m.dodge);
     }
 
-    function DeleteMonster() public isOwner() {
-
+    //TODO: Populate with more monsters.
+    function PopMonster() public onlyOwner() {
+        AddMonsterToStorage("Goblin Warrior", "A tiny greenskin with a wooden spear", "1-3",10,3,4,4);
+        AddMonsterToStorage("Cyclop", "A 15 feet one-eyed giant with leatherlike skin", "8-11",120,25,20,5);
     }
 
-    struct Monster {
-        string name;
-        string description;
-        string levelspan;
-        uint256 health;
-        uint256 damage;
-        uint256 crit;
-        uint256 dodge;
+    function DeleteMonster(bytes32 _name) public onlyOwner() {
+        delete _storage._monsterStorage[_name];
     }
-
-    event MonsterInfo(
-        string name,
-        string description,
-        string levelspan,
-        uint256 health,
-        uint256 damage,
-        uint256 crit,
-        uint256 dodge  
-    );
-
-    ///RESURRECTION
-    uint256 constant RES_COST = 500; 
-
-    //Purchase a resurrectionstone and resurrect target gladiator.
-    function ResurrectionStone(uint256 _gladiatorindex) public {
-        transfer(owner, RES_COST);
-        Gladiators[_gladiatorindex].IsAlive = true; 
-    }
-    
+    //TODO Continue refactoring from here.
     function GetPlayerGladiators(address _a) public view returns (Gladiator[]) {
-        return _a.OwnedGladiators;
+        return _storage._a.OwnedGladiators;
     }
     function GetPlayerBalance(address _a) public view returns (uint256) {
-        return _a.Token;
-    }
-
-
-    function iator(uint256 _i) public view returns (Gladiator) {
-        return Gladiators[_i];
+        return _storage._a.OwnedTokens;
     }
 
     function GetName(Gladiator _g) public pure returns (string) {
@@ -330,7 +219,7 @@ contract Game is StorageState{
         return _g.Level;
     }
     
-    function GetExperience(Gladiator _g) public pure returns(uint256) { 
+    function GetTotalExperience(Gladiator _g) public pure returns(uint256) { 
         return _g.Experience;
     }
     
@@ -338,6 +227,11 @@ contract Game is StorageState{
     function GetInitialHealth(uint256 _t) private pure returns (uint256) {
         return _t*2;
     }
+    
+    function GetMaxHealth(Gladiator _g) public pure returns (uint256) {
+        return _g.maxHealth;
+    }
+
     function GetInitialDamage(uint256 _s) private pure returns(uint256) { 
         return _s*2;
     }
@@ -349,19 +243,19 @@ contract Game is StorageState{
     }
 
     function GetCurrentHealth(Gladiator _g) public pure returns (uint256) {
-        return _g.CurrentHealth;
+        return _g.currentHealth;
     }
     
     function GetCurrentDamage(Gladiator _g) public pure returns (uint256) {
-        return _g.Damage;
+        return _g.damage;
     }
     
     function GetCurrentCritChance(Gladiator _g) public pure returns (uint256) {
-        return _g.CritChance;
+        return _g.critChance;
     }
     
     function GetCurrentDodgeChance(Gladiator _g) public pure returns (uint256) {
-        return _g.DodgeChance;
+        return _g.dodgeChance;
     }
 
     function GetAge(Gladiator _g) public pure returns (uint256) {
@@ -376,73 +270,67 @@ contract Game is StorageState{
         return ItemsOnGladiator[_g][_s];
     }
 
-    ///COMBAT
-    function Fight(Gladiator _g, bool _pvp, uint256 _id) internal {
-        
-        if(_pvp) {
-            against = GetGladiator(_id);
+    //SETTERS
+    function Health(Gladiator _g, uint256 _amount) {
+        _g.currentHealth += _amount;
+        if(_g.currentHealth > GetMaxHealth(_g)) {
+            _g.currentHealth = GetMaxHealth(_g);
         }
-        else {
-            against = GetMonster(_id);
+        if(_g.currentHealth <= 0) {
+            _g.currentHealth = 0;
         }
-        DealDamage();
-        GetExperience(_g,1000);
-        LevelUp(_g);       
     }
 
+    ///COMBAT
     function Practice(Gladiator _g) public IsAlive(_g)  {
         require(_g.state == GladiatorState.IDLE, "Gladiator has to be idle");
         _g.State = GladiatorState.PRACTICE;
         transfer(owner,1000);
-        GetExperience(_g,1000);
+        (_g,1000);
         LevelUp(_g);
         _g.State = GladiatorState.IDLE;
     }
 
-    function FightMonster(Gladiator _g, uint256 _m) public IsAlive(_g) {
-        require(_g.state == GladiatorState.IDLE, "Gladiator has to be idle");
-        _g.State = GladiatorState.FMONSTER;
-        GetMonster(_m);
-        Fight(_g,false,_m);
-
-        _g.State = GladiatorState.IDLE;
-    }
-
-    function FightPlayer(Gladiator _g, uint256 _tofight) public IsAlive(_g) {
+    function PreFight(Gladiator _g, uint256 _tofight) public IsAlive(_g) {
         require(_g.state == GladiatorState.IDLE, "Gladiator has to be idle");
         _g.State = GladiatorState.FPLAYER;
         Fight(_g,true,_m);
         _g.State = GladiatorState.IDLE;
     }
 
-    function EmitCombat(uint256 _a, uint256 _b) public {
-
+    function Fight(Gladiator _g, bool _pvp, bytes32 _name) internal {
+        
+        if(_pvp) {
+            //TODO: Fix get functions
+            Gladiator player = _storage.GetGladiator(_name);
+            DealDamage(_g, player);
+        }
+        else {
+              //TODO: Fix get functions
+            Monster monster = _storage.GetMonster(_name);
+            DealDamage(_g, monster);
+        }
     }
 
-    event damageinfo(
-        //Ex. A hit B with WeaponName for X damage
-        string attackerName,
-        string defenderName,
-        string weaponName,
-        uint256 damage
+    function DealDamage(Gladiator _a, Monster _m) internal IsAlive(_a) {
+        require(_a.state = State.IDLE);
+        uint256 dmgsum = 0;
+        while(GetCurrentHealth(_a) >0 && dmgsum <= m.health) {
+            //PLAYER ALWAYS ATTACKS FIRST IN MONSTERFIGHTS.
+            CombatTurn(_a,_m);
+            CombatTurn(_m,_a);
+        } 
+        if(GetCurrentHealth(_a) <= 0) {
+            KillGladiator(_a);
+        } 
+        else if(dmgsum <= m.health) {
+            (_a,CalculateExperienceFromFight(_m.health, _m.dmg, _m.level));
+        }
+    }
 
-    );
-    event critinfo(
-        //Ex. A critically hit B with WeaponName for X damage
-        string attackerName,
-        string defenderName,
-        string weaponName,
-        uint256 damage
-
-    );
-    event dodgeinfo(
-        //Ex. A attacked B, but B dodged it swiftly.
-        string attackerName,
-        string defenderName
-    );
-     
     function DealDamage(Gladiator _a, Gladiator _b) internal IsAlive(_a) IsAlive(_b) {
-        while(_a.CurrentHealth > 0 && _b.CurrentHealth > 0) {
+        require(_a.state = State.IDLE && _b.state == State.IDLE);
+        while(GetCurrentHealth(_a) > 0 && GetCurrentHealth(_a) > 0) {
             //Check if a or b hits first
             if(FirstStriker(_a.GetDexterity,_b.GetDexterity)) {
                 CombatTurn(_a,_b);
@@ -453,35 +341,18 @@ contract Game is StorageState{
                 CombatTurn(_a,_b);
             }
         } 
-        if(_a.CurrentHealth < 0) {
+        if(GetCurrentHealth(_a) <= 0) {
             KillGladiator(_a);
-            _b.Experience += CalculateExperienceFromGladiator(_a);
+            (_b, CalculateExperienceFromFight(GetMaxHealth(_a), GetCurrentDamage(_a), GetLevel(_a)));
             LevelUp(_b);
         }
-        if(_b.CurrentHealth < 0) {
+        if(GetCurrentHealth(_b) <= 0) {
             KillGladiator(_b);
-            _a.Experience += CalculateExperienceFromGladiator(_b);
+            (_a, CalculateExperienceFromFight(GetMaxHealth(_b), GetCurrentDamage(_b), GetLevel(_b)));
             LevelUp(_a);
         }
     }
-
-    function CombatTurn(Gladiator _a, Gladiator _b) {
-    //Check dodge
-        if(rand()%MAX_NUM+1 <= _a.GetCurrentDodgeChance()) {
-            //emit Dodge
-        }
-        //Check crit
-        else if(rand()%MAX_NUM+1 <= _b.GetCurrentCritChance()) {
-            //TODO: Add crit bonus depending on weapon.
-            _a.CurrentHealth -= _b.Damage*2;
-            emit critinfo();
-        }
-        else {
-            _a.CurrentHealth -= _b.Damage;
-            emit hitinfo();
-        }
-    }
-
+    
     function FirstStriker(uint256 a, uint256 b) internal returns (bool) {
         if(a>b){
             return true;
@@ -491,31 +362,107 @@ contract Game is StorageState{
         }
     }
 
-    function KillGladiator(_g) internal {
-        Gladiators[_g.id].IsAlive = false;
+    //VS Monster
+    function CombatTurn(Gladiator _a, Monster _m) {
+    //Check dodge
+        if(rand()%MAX_NUM+1 <= _a.GetCurrentDodgeChance()) {
+            emit dodgeinfo(_a.name,_m.name);
+        }
+        //Check crit
+        else if(rand()%MAX_NUM+1 <= _b.GetCurrentCritChance()) {
+            //TODO: Add crit bonus depending on weapon.
+            _a.CurrentHealth -= _m.Damage*2;
+            emit critinfo(_a.name,_m.name,_m.items["MAINHAND"], _m.GetCurrentDamage()*2);
+        }
+        else {
+            _a.CurrentHealth -= _m.Damage;
+            emit hitinfo(_a.name,_m.name,_m.items["MAINHAND"], _m.GetCurrentDamage());
+        }
+    }
+
+    //VS PLAYER
+    function CombatTurn(Gladiator _a, Gladiator _b) {
+    //Check dodge
+        if(rand()%MAX_NUM+1 <= _a.GetCurrentDodgeChance()) {
+            emit dodgeinfo(_a.name,_b.name);
+        }
+        //Check crit
+        else if(rand()%MAX_NUM+1 <= _b.GetCurrentCritChance()) {
+            //TODO: Add crit bonus depending on weapon.
+            _a.CurrentHealth -= _b.Damage*2;
+            emit critinfo(_a.name,_b.name,_b.items["MAINHAND"], _b.GetCurrentDamage()*2);
+        }
+        else {
+            _a.CurrentHealth -= _b.Damage;
+            emit hitinfo(_a.name,_b.name,_b.items["MAINHAND"], _b.GetCurrentDamage());
+        }
+    }
+
+
+
+    function KillGladiator(Gladiator _killed, Gladiator _killer) internal {
+        _killer.killedGladiators += 1;
+        emit deadgladiator(_killed.name, _killer.name, block.number);
+        delete _killed.owner.OwnedGladiators[_killed];
+    }
+
+    ///RESURRECTION
+    uint256 constant RES_COST = 5000; 
+
+    //Purchase a resurrectionstone and resurrect target gladiator.
+    function ResurrectionStone(bytes32 _name) public {
+        transfer(owner, RES_COST);
+        [msg.sender].OwnedGladiators[_name].IsAlive = true;
+    }
+
+    uint256 constant BANDAGE_HEAL_AMOUNT = 100;
+    uint256 constant HEALTH_POTION_HEAL_AMOUNT = 500;
+    uint256 constant HEALING_MAGIC_HEAL_AMOUNT = 1000;
+    uint256 constant BANDAGE_COST = 200;
+    uint256 constant HEALTH_POTION_COST = 350;
+    uint256 constant HEALING_MAGIC_COST = 500;
+
+    function Healing(uint256 _t, bytes32 _name) public {
+        Gladiator g = [msg.sender].OwnedGladiators[_name];
+        if(_t==0) {
+            transfer(owner,BANDAGE_COST);
+            g.SetCurrentHealth(BANDAGE_HEAL_AMOUNT);
+            emit healing("Bandage",HEALING_BANDAGE_HEAL_AMOUNT,g);
+        } 
+        else if(_t==1){
+            transfer(owner,HEALTH_POTION_COST);
+            g.SetCurrentHealth(HEALTH_POTION_HEAL_AMOUNT);
+            emit healing("Potion",HEALING_POTION_HEAL_AMOUNT,g);
+        } 
+        else if(_t==2){
+            transfer(owner,HEALING_MAGIC_COST);
+            g.SetCurrentHealth(HEALING_MAGIC_HEAL_AMOUNT);
+            emit healing("Magic",HEALING_MAGIC_HEAL_AMOUNT,g);
+        } 
     }
 
     ///ITEMS
-    //AddItemToStorage("Goblin Warrior", "A tiny greenskin with a wooden spear", "1-3",10,3,4,4);
+    /// @param a is the name of item
+    /// @param b is the slot of item
 
     function AddItemToStorage(
-        string a, string b, string c,
-        uint256 d, uint256 e, uint256 f,
-        uint256 g, uint256 h, uint256 i,
-        uint256 j, uint256 k)
+        string name, string slot, string description,
+        uint256 strengthbonus, uint256 toughnessbonus, uint256 dexteritybonus,
+        uint256 healthbonus, uint256 damagebonus, uint256 dodgebonus,
+        uint256 critbonus, uint256 duration)
         public isOwner() {
             Item memory item;
-            item.name = a;
-            item.slot = b;
-            item.description = c;
-            item.strength_bonus = d;
-            item.toughness_bonus = e;
-            item.dexterity_bonus = f;
-            item.health_bonus = g;
-            item.damage_bonus = h;
-            item.dodge_bonus = i;
-            item.crit_bonus = j;
-            item.duration = k;
+            item.name = name;
+            item.slot = slot;
+            item.description = description;
+            item.strength_bonus = strengthbonus;
+            item.toughness_bonus = toughnessbonus;
+            item.dexterity_bonus = dexteritybonus;
+            item.health_bonus = healthbonus;
+            item.damage_bonus = damagebonus;
+            item.dodge_bonus = dodgebonus;
+            item.crit_bonus = critbonus;
+            item.duration = duration;
 
             _storage.setItem(item.name, item);
     }
@@ -526,138 +473,94 @@ contract Game is StorageState{
         delete ItemsInShop[_item];
     }
 
-    struct Item {
-        string name;
-        string slot;
-        string description;
-            
-        uint256 strength_bonus;
-        uint256 toughness_bonus;
-        uint256 dexterity_bonus;
-
-        uint256 health_bonus;
-        uint256 damage_bonus;
-        uint256 dodge_bonus;
-        uint256 crit_bonus;
-
-        uint256 duration;
-    }
-
-    event ItemInfo(
-        string name,
-        string description,
-        string levelspan,
-        uint256 health,
-        uint256 damage,
-        uint256 crit,
-        uint256 dodge  
-    );
-
     function PopShop() public {
         AddItemToStorage("Cloth Cap","A ragged piece of cloth","HEAD",0,0,0,0,0,0,0,0,100);
-        //TODO: Add plenty of cool items.
+        AddItemToStorage("Leather Cap","Hardened leather hat", "HEAD",0,0,0,0,0,0,0,0,200);
+        AddItemToStorage("Chainmail hood", "Links of chain","HEAD",0,0,0,0,0,0,0,0,0,400);
+
+        AddItemToStorage("","","SHOULDERS",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","SHOULDERS",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","SHOULDERS",0,0,0,0,0,0,0,0,100);
+
+        AddItemToStorage("","","CHEST",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","CHEST",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","CHEST",0,0,0,0,0,0,0,0,100);
+
+        AddItemToStorage("","","BRACERS",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","BRACERS",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","BRACERS",0,0,0,0,0,0,0,0,100);
+
+        AddItemToStorage("","","HANDS",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","HANDS",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","HANDS",0,0,0,0,0,0,0,0,100);
+
+         AddItemToStorage("","","WAIST",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","WAIST",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","WAIST",0,0,0,0,0,0,0,0,100);
+
+        AddItemToStorage("","","LEGS",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","LEGS",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","LEGS",0,0,0,0,0,0,0,0,100);
+
+        AddItemToStorage("","","FEET",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","FEET",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","FEET",0,0,0,0,0,0,0,0,100);
+
+        AddItemToStorage("","","MAINHAND",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","MAINHAND",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","MAINHAND",0,0,0,0,0,0,0,0,100);
+
+        AddItemToStorage("","","OFFHAND",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","OFFHAND",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","OFFHAND",0,0,0,0,0,0,0,0,100);
+
+        AddItemToStorage("","","TWOHAND",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","TWOHAND",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","TWOHAND",0,0,0,0,0,0,0,0,100);
+
+        AddItemToStorage("","","RING",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","RING",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","RING",0,0,0,0,0,0,0,0,100);
+
+        AddItemToStorage("","","AMULET",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","AMULET",0,0,0,0,0,0,0,0,100);
+        AddItemToStorage("","","AMULET",0,0,0,0,0,0,0,0,100);
     }
 
-    //TODO: Equipping a new item before selling the old will destroy the old item.
-    function EquipItem(uint256 _gladindex, uint256 _itemindex) public {
+    function EquipItem(uint256 _gladindex, string _item) {
+        Item item = _storage.GetItem(_item);
         Gladiator glad = [msg.sender].OwnedGladiators[_gladindex];
-        string item = GetItemType();
-
-        if(CheckSlotsEmpty(glad,item)){
-        } 
-        else {
-            //Equip item.
-            if(_s == "HEAD"){
-                RemoveItemBonuses(glad,0);
-                glad.items[0] = ItemsInShop[_itemindex];
-                AddItemBonuses(glad,_itemindex);
-            }
-            if(_s == "CHEST"){
-                RemoveItemBonuses(glad,1);
-                glad.items[1] = ItemsInShop[_itemindex];
-                AddItemBonuses(glad,_itemindex);
-            }
-            if(_s == "HANDS"){
-                RemoveItemBonuses(glad,2);
-                glad.items[2] = ItemsInShop[_itemindex];
-                AddItemBonuses(glad,_itemindex);
-            }
-            if(_s == "LEGS"){
-                RemoveItemBonuses(glad,3);
-                glad.items[3] = ItemsInShop[_itemindex];
-                AddItemBonuses(glad,_itemindex);
-            }
-            if(_s == "BOOTS"){
-                RemoveItemBonuses(glad,4);
-                glad.items[4] = ItemsInShop[_itemindex];
-                AddItemBonuses(glad,_itemindex);
-            }
-            if(_s == "MAINHAND"){
-                RemoveItemBonuses(glad,5);
-                glad.items[5] = ItemsInShop[_itemindex];
-                AddItemBonuses(glad,_itemindex);
-            }
-            if(_s == "OFFHAND"){
-                RemoveItemBonuses(glad,6);
-                glad.items[6] = ItemsInShop[_itemindex];
-                AddItemBonuses(glad,_itemindex);
-            }
-            if(_s == "TWOHAND"){
-                RemoveItemBonuses(glad,7);
-                glad.items[7] = ItemsInShop[_itemindex];
-                AddItemBonuses(glad,_itemindex);
-            }
-            if(_s == "RING"){
-                RemoveItemBonuses(glad,8);
-                glad.items[8] = ItemsInShop[_itemindex];
-                AddItemBonuses(glad,_itemindex);
-            }
-            if(_s == "RING"){
-                RemoveItemBonuses(glad,9);
-                glad.items[9] = ItemsInShop[_itemindex];
-                AddItemBonuses(glad,_itemindex);
-            }
-            if(_s == "AMULET"){
-                RemoveItemBonuses(glad,10);
-                glad.items[10] = ItemsInShop[_itemindex];
-                AddItemBonuses(glad,_itemindex);
-            }
+        if(CheckSlotTaken(glad,item.slot)) {
+            //Remove bonuses stored on the current equipment place
+            UpdateItemBonuses(_glad, glad.items[item.slot], false);
         }
+        UpdateItemBonuses(_glad, _glad[item.slot], true);
+       [msg.sender].OwnedGladiators[glad] = getItem(item.name);
     }
 
-    function CheckSlotTaken(Gladiator _glad, string _s) public returns (bool) {
-        if(glad.items[0] == item && _s == "HEAD"){return true;}
-        if(glad.items[1] == item && _s == "CHEST"){return true;}
-        if(glad.items[2] == item && _s == "HANDS"){return true;}
-        if(glad.items[3] == item && _s == "LEGS"){return true;}
-        if(glad.items[4] == item && _s == "BOOTS"){return true;}
-        if(glad.items[5] == item && _s == "MAINHAND"){return true;}
-        if(glad.items[6] == item && _s == "OFFHAND"){return true;}
-        if(glad.items[7] == item && _s == "TWOHAND"){return true;}
-        if(glad.items[8] == item && _s == "RING"){return true;}
-        if(glad.items[9] == item && _s == "RING"){return true;}
-        if(glad.items[10] == item && _s == "AMULET"){return true;}
-        else {return false;}
-    }
-
-    function RemoveItemBonuses(Gladiator glad, uint256 i) internal {
-        glad.Strength -= glad.items[i].strength_bonus;
-        glad.Toughness -= glad.items[i].toughness_bonus;
-        glad.Dexterity -= glad.items[i].dexterity_bonus;
-        glad.Health -= glad.items[i].health_bonus;
-        glad.Damage -= glad.items[i].damage_bonus;
-        glad.DodgeChance -= glad.items[i].dodge_bonus;
-        glad.CritChance -= glad.items[i].crit_bonus;
+    function CheckSlotTaken(Gladiator _glad, string _s) internal returns (bool) {
+        if(_glad.items[_s]!=""){return true;}
+        else{ return false;}
     }
     
-    function ApplyItemBonuses(Gladiator glad, uint256 i) internal {
-        glad.Strength += ItemsInShop[_itemindex].strength_bonus;
-        glad.Toughness += ItemsInShop[_itemindex].toughness_bonus;
-        glad.Dexterity += ItemsInShop[_itemindex].dexterity_bonus;
-        glad.Health += ItemsInShop[_itemindex].health_bonus;
-        glad.Damage += ItemsInShop[_itemindex].damage_bonus;
-        glad.DodgeChance += ItemsInShop[_itemindex].dodge_bonus;
-        glad.CritChance += ItemsInShop[_itemindex].crit_bonus;
+    function UpdateItemBonuses(Gladiator glad, Item i, bool apply) internal {
+        if(apply) {
+            glad.Strength += i.strength_bonus;
+            glad.Toughness += i.toughness_bonus;
+            glad.Dexterity += i.dexterity_bonus;
+            glad.Health += i.health_bonus;
+            glad.Damage += i.damage_bonus;
+            glad.DodgeChance += i.dodge_bonus;
+            glad.CritChance += i.crit_bonus;
+        } else {
+            glad.Strength -= i.strength_bonus;
+            glad.Toughness -= i.toughness_bonus;
+            glad.Dexterity -= i.dexterity_bonus;
+            glad.Health -= i.health_bonus;
+            glad.Damage -= i.damage_bonus;
+            glad.DodgeChance -= i.dodge_bonus;
+            glad.CritChance -= i.crit_bonus;
+        }
     }
 
     function GetItemType(uint256 _itemID) public returns (string) {
@@ -665,8 +568,12 @@ contract Game is StorageState{
     }
 
     function PurchaseItem(uint256 gladindex, uint256 itemid) public {
-        uint256 price = ItemsInShop[itemid].price;
-        transfer(owner, price);
+        uint256 pricenew = ItemsInShop[itemid].price;
+        transfer(owner, pricenew);
         EquipItem(gladindex,item);
     }
+
+    //Equipment bind to gladiator
+    //Equipment modifiers apply to gladiator
+    //Emit GladiatorUpdate to storage
 } 

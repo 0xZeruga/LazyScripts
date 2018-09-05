@@ -54,8 +54,9 @@ contract MyToken is StorageState , Ownable {
 
     //Sell Tokens and get ethereum back
     function sell(uint256 amount) public returns (uint256) {
-        require(balanceOf[msg.sender] >= amount,"Not enough money");
-        balanceOf[this] += amount;
+        require(getTokensForAddress(msg.sender) >= amount && amount > 0,"Not enough money");
+        _storage.setTokensForAddress([this],amount);
+        _storage.setTokensForAddress([msg.sender],-amount);
         balanceOf[msg.sender] -= amount;
         uint256 revenue = amount * sellPrice;
         msg.sender.transfer(revenue);
@@ -65,17 +66,17 @@ contract MyToken is StorageState , Ownable {
 
     function transfer(address _to, uint256 _value) public {
         /* Check if sender has balance and for overflows */
-        require(balanceOf[msg.sender] >= _value && balanceOf[_to] + _value >= balanceOf[_to], "Insufficient balance");
+        require(_storage.getTokensForAddress([msg.sender]) >= _value &&  _storage.getTokensForAddress(_to) + _value >=  _storage.getTokensForAddress(_to), "Insufficient balance");
 
         /* Add and subtract new balances */
-        balanceOf[msg.sender] -= _value;
-        balanceOf[_to] += _value;
+        _storage.setTokensForAddress([msg.sender], -_value);
+        _storage.setTokensForAddress(_to, _value);
         /* Notify anyone listening that this transfer took place */
-        if(_to.balance<minBalanceForAccounts) {
+        if(_storage.getTokensForAddress(_to) <minBalanceForAccounts) {
             //_to.send(sell((minBalanceForAccounts - _to.balance) / sellPrice));
-            emit Transfer(msg.sender,_to,(sell((minBalanceForAccounts - _to.balance) / sellPrice)));
+            emit Transfer([msg.sender],_to,(sell((minBalanceForAccounts - _storage.getTokensForAddress(_to)) / sellPrice)));
         } else {
-            emit Transfer(msg.sender, _to, _value);
+            emit Transfer([msg.sender], _to, _value);
         }
 
     }

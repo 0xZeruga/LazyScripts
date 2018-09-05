@@ -1,6 +1,6 @@
 pragma solidity ^0.4.18;
 
-import "./DelegateV1.sol";
+import "./Delegate.sol";
 import "./StorageState.sol";
 import "./Ownable.sol";
 
