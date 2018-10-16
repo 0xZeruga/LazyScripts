@@ -193,10 +193,10 @@ contract Game is StorageState, Ownable {
     }
     //TODO Continue refactoring from here.
     function GetPlayerGladiators(address _a) public view returns (Gladiator[]) {
-        return _storage._a.OwnedGladiators;
+        return _a.OwnedGladiators;
     }
     function GetPlayerBalance(address _a) public view returns (uint256) {
-        return _storage._a.OwnedTokens;
+        return _a.OwnedTokens;
     }
 
     function GetName(Gladiator _g) public pure returns (string) {

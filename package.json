@@ -1,0 +1,22 @@
+{
+  "name": "etherrpg",
+  "version": "0.0.1",
+  "description": "RPG-game built on Ethereum's BLockchain but deployed through Gochain",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AurhinDev/EtherRPG.git"
+  },
+  "author": "Jacob Eriksson",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/AurhinDev/EtherRPG/issues"
+  },
+  "homepage": "https://github.com/AurhinDev/EtherRPG#readme",
+  "dependencies": {
+    "web3": "github:ethereum/web3.js"
+  }
+}

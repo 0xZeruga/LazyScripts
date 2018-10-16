@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA_Compatible" content="ie=edge">
+    <title>Document</title>
+
+    <link rel="stylesheet" type="text/css" href="main.css">
+    <script src="./node_modules/web3/dist/web3.min.js"></script>
+
+      <style>
+        table {
+            font-family: arial, sans-serif;
+            border-collapse: collapse;
+            width: 100%;
+        }
+
+        td, th {
+            border: 1px solid #dddddd;
+            text-align: left;
+            padding: 8px;
+        }
+
+        tr:nth-child(even) {
+            background-color: #dddddd;
+        }
+        tr:hover {background-color: #D8DA5C}
+      </style>
+  </head>
+
+
+<body>
+
+<h1>Arena</h1>
+<h2>Gladiators</h2>
+<label for="address" class="col-lg-2 control-label">Ethereum Address</label>
+        <input id="address" type="text">
+<label for="balance" class="col-lg-2 control-label">Balance</label>
+     <input id="balance" type="text">
+
+<table id="characterTable">
+    <tr>
+        <td><button class="link" onClick="NameSort()"><span style="font-weight:bold">Name</span></td>
+        <td><button class="link" onClick="LevelSort()"><span style="font-weight:bold">Level</span></td>
+        <td><button class="link" onClick="DateSort()"><span style="font-weight:bold">Date Created</span></td>
+        <td><button class="link" onClick="ActionSort()"><span style="font-weight:bold">Currently</span></td>
+    </tr>
+    <tr>
+        <td>Test name</td>
+        <td>1</td>
+        <td>01-01-01</td>
+        <td>None</td>
+    </tr>
+    <tr>
+        <td>Test 2</td>
+        <td>2</td>
+        <td>01-01-01</td>
+        <td>None</td>
+    </tr>
+</table>
+
+<script>
+
+       if (typeof web3 !== 'undefined') {
+           web3 = new Web3(web3.currentProvider);
+       } else {
+           // set the provider you want from Web3.providers
+           web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
+       }
+       web3.eth.defaultAccount = web3.eth.accounts[0];
+
+       var ArenaContract = web3.eth.contract(PASTE ABI HERE!);
+       var Arena = ArenaContract.at('PASTE CONTRACT ADDRESS HERE');
+       console.log(Arena);
+
+       var glads = Arena.GetPlayerGladiators(web3.eth.defaultAccount);
+       var gladlength = glads.length;
+
+       var table = document.getElementById("characterTable");
+       var i;
+       for (i = 0; i < gladlength; i++) {
+          var row = table.insertRow(-1);
+          var name = row.insertCell(0);
+          var level = row.insertCell(1);
+          var datecreated = row.insertCell(2);
+          var currently = row.insertCell(3);
+          name.innerHTML = glads[i].Name; //
+          level.innerHTML = glads[i].Level;
+          datecreated.innerHTML = glads[i].DateCreated;
+          currently.innerHTML = glads[i].Currently;
+        }
+
+        var adr = document.getElementById("address");
+        adr.innerHTML = web3.eth.defaultAccount;
+
+        tokens = Arena.GetPlayerBalance(web3.eth.defaultAccount);
+        var bal = document.getElementById("balance");
+        bal.innerHTML = tokens;
+
+        function NameSort() {
+
+        }
+
+        function LevelSort() {
+
+        }
+
+        function DateSort() {
+
+        }
+
+        function ActionSort() {
+
+        }
+
+</script>
+
+</body>
+</html>
