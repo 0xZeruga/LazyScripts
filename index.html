@@ -5,8 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA_Compatible" content="ie=edge">
     <title>Document</title>
-
-    <link rel="stylesheet" type="text/css" href="main.css">
     <script src="./node_modules/web3/dist/web3.min.js"></script>
 
       <style>
@@ -40,79 +38,110 @@
      <input id="balance" type="text">
 
 <table id="characterTable">
-    <tr>
-        <td><button class="link" onClick="NameSort()"><span style="font-weight:bold">Name</span></td>
-        <td><button class="link" onClick="LevelSort()"><span style="font-weight:bold">Level</span></td>
-        <td><button class="link" onClick="DateSort()"><span style="font-weight:bold">Date Created</span></td>
-        <td><button class="link" onClick="ActionSort()"><span style="font-weight:bold">Currently</span></td>
-    </tr>
-    <tr>
-        <td>Test name</td>
-        <td>1</td>
-        <td>01-01-01</td>
-        <td>None</td>
-    </tr>
-    <tr>
-        <td>Test 2</td>
-        <td>2</td>
-        <td>01-01-01</td>
-        <td>None</td>
-    </tr>
+    <tbody>
+            <tr>
+                    <td><button class="link" onClick="NameSort()"><span style="font-weight:bold">Name</span></td>
+                    <td><button class="link" onClick="LevelSort()"><span style="font-weight:bold">Level</span></td>
+                    <td><button class="link" onClick="DateSort()"><span style="font-weight:bold">Date Created</span></td>
+                    <td><button class="link" onClick="ActionSort()"><span style="font-weight:bold">Currently</span></td>
+                </tr>
+                <tr class="clickable-row" data-href="url://blah">
+                    <td>Test name</td>
+                    <td>1</td>
+                    <td>01-01-01</td>
+                    <td>None</td>
+                </tr>
+                <tr class="clickable-row" data-href="url://bluh">
+                    <td>Test 2</td>
+                    <td>2</td>
+                    <td>01-01-01</td>
+                    <td>None</td>
+                </tr>
+    </tbody>
 </table>
 
 <script>
 
-       if (typeof web3 !== 'undefined') {
-           web3 = new Web3(web3.currentProvider);
-       } else {
-           // set the provider you want from Web3.providers
-           web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
-       }
-       web3.eth.defaultAccount = web3.eth.accounts[0];
+    if (typeof web3 !== 'undefined') {
+       web3 = new Web3(web3.currentProvider);
+    } 
+    else {
+        // set the provider you want from Web3.providers
+        web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
+    }
+    web3.eth.defaultAccount = web3.eth.accounts[0];
 
-       var ArenaContract = web3.eth.contract(PASTE ABI HERE!);
-       var Arena = ArenaContract.at('PASTE CONTRACT ADDRESS HERE');
-       console.log(Arena);
+    var ArenaContract = web3.eth.contract("abi");
+    var Arena = ArenaContract.at('PASTE CONTRACT ADDRESS HERE');
+    console.log(Arena);
 
-       var glads = Arena.GetPlayerGladiators(web3.eth.defaultAccount);
-       var gladlength = glads.length;
+    var adr = document.getElementById("address");
+    adr.innerHTML = web3.eth.defaultAccount;
 
-       var table = document.getElementById("characterTable");
-       var i;
-       for (i = 0; i < gladlength; i++) {
-          var row = table.insertRow(-1);
-          var name = row.insertCell(0);
-          var level = row.insertCell(1);
-          var datecreated = row.insertCell(2);
-          var currently = row.insertCell(3);
-          name.innerHTML = glads[i].Name; //
-          level.innerHTML = glads[i].Level;
-          datecreated.innerHTML = glads[i].DateCreated;
-          currently.innerHTML = glads[i].Currently;
+    tokens = Arena.GetPlayerBalance(web3.eth.defaultAccount);
+    var bal = document.getElementById("balance");
+    bal.innerHTML = tokens;
+
+    GenerateFrontPage();
+
+    var inputElement = document.createElement('input');
+    inputElement.type = "button"
+    inputElement.addEventListener('click', function(){
+    gotoNode(result.name);
+    });
+
+​    document.body.appendChild(inputElement);​
+
+    function GenerateFrontPage() {
+        var glads = Arena.GetPlayerGladiators(web3.eth.defaultAccount);
+        var gladlength = glads.length;
+
+        var table = document.getElementById("characterTable");
+        var i;
+        for (i = 0; i < gladlength; i++) {
+
+           var row = table.insertRow(-1);
+           $('#character tr').on( 'click', 'tr',function () {
+               GenerateCharacterPage("gladid");
+           });
+
+           var name = row.insertCell(0);
+           var level = row.insertCell(1);
+           var datecreated = row.insertCell(2);
+           var currently = row.insertCell(3);
+           name.innerHTML = glads[i].Name; //
+           level.innerHTML = glads[i].Level;
+           datecreated.innerHTML = glads[i].DateCreated;
+           currently.innerHTML = glads[i].Currently;
+
+           var inputElement = row.createElement('input');
+           inputElement.type = "button"
+           inputElement.addEventListener('click', function(){
+           GenerateCharacterPage(row.Name.innerHTML);
+           });
         }
+    }
 
-        var adr = document.getElementById("address");
-        adr.innerHTML = web3.eth.defaultAccount;
+    function GenerateCharacterPage(id) {
+        console.log("ok" + id);
+        //Generate character from id. 
+    }
 
-        tokens = Arena.GetPlayerBalance(web3.eth.defaultAccount);
-        var bal = document.getElementById("balance");
-        bal.innerHTML = tokens;
+    function NameSort() {
+        console.log("Name");
+    }
 
-        function NameSort() {
+    function LevelSort() {
+        console.log("Level");
+    }
 
-        }
+    function DateSort() {
+        console.log("Date");
+    }
 
-        function LevelSort() {
-
-        }
-
-        function DateSort() {
-
-        }
-
-        function ActionSort() {
-
-        }
+    function ActionSort() {
+        console.log("Action");
+    }
 
 </script>
 
