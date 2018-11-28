@@ -3,7 +3,7 @@
 //GOAL 500 lines.
 //TODO Auction
 
-pragma solidity ^0.4.24;
+pragma solidity 0.4.24;
 
 import "./SafeSol/StorageState.sol";
 import "./SafeSol/Ownable.sol";
@@ -81,7 +81,15 @@ contract Game is StorageState, Ownable {
     
     ///GLADIATOR
     //Emit where gladiatorstats are updated.
-    function ShoutGladiatorInfo(uint256 _id) public {
+    function ShoutGladiatorInfo(bytes32 _id) public {
+        Gladiator g = _gladiatorStorage[key];
+
+        emit gladiatorinfo(
+            g.name,g.strength,g.toughness,g.dexterity,
+            g.maxHealth,g.currentHealth, g.damage,
+            g.dodgeChance,crit,age,uap,head,chest,hands,legs,boots,mainhand,offhand,twohand,ring,ring2,amulet);
+
+
         name = GetName(Gladiators[_id]);
         str = GetStrength(Gladiators[_id]);
         tou = GetToughness(Gladiators[_id]);
@@ -183,6 +191,7 @@ contract Game is StorageState, Ownable {
     }
 
     //TODO: Populate with more monsters.
+    //Name, description, level-span, health, damage, crit, dodge
     function PopMonster() public onlyOwner() {
         AddMonsterToStorage("Goblin Warrior", "A tiny greenskin with a wooden spear", "1-3",10,3,4,4);
         AddMonsterToStorage("Cyclop", "A 15 feet one-eyed giant with leatherlike skin", "8-11",120,25,20,5);
@@ -192,7 +201,7 @@ contract Game is StorageState, Ownable {
         delete _storage._monsterStorage[_name];
     }
     //TODO Continue refactoring from here.
-    function GetPlayerGladiators(address _a) public view returns (Gladiator[]) {
+    function GetPlayerGladiators(address _a) public view returns (mapping(address=> mapping(address => uint256))) {
         return _a.OwnedGladiators;
     }
     function GetPlayerBalance(address _a) public view returns (uint256) {
@@ -363,7 +372,7 @@ contract Game is StorageState, Ownable {
     }
 
     //VS Monster
-    function CombatTurn(Gladiator _a, Monster _m) {
+    function CombatTurn(Gladiator _a, Monster _m) private {
     //Check dodge
         if(rand()%MAX_NUM+1 <= _a.GetCurrentDodgeChance()) {
             emit dodgeinfo(_a.name,_m.name);
@@ -381,7 +390,7 @@ contract Game is StorageState, Ownable {
     }
 
     //VS PLAYER
-    function CombatTurn(Gladiator _a, Gladiator _b) {
+    function CombatTurn(Gladiator _a, Gladiator _b) private {
     //Check dodge
         if(rand()%MAX_NUM+1 <= _a.GetCurrentDodgeChance()) {
             emit dodgeinfo(_a.name,_b.name);
@@ -400,7 +409,7 @@ contract Game is StorageState, Ownable {
 
 
 
-    function KillGladiator(Gladiator _killed, Gladiator _killer) internal {
+    function KillGladiator(Gladiator _killed, Gladiator _killer) private {
         _killer.killedGladiators += 1;
         emit deadgladiator(_killed.name, _killer.name, block.number);
         delete _killed.owner.OwnedGladiators[_killed];

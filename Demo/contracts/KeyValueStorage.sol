@@ -7,6 +7,8 @@ import "./Game.sol";
 /// @author Jacob Eriksson
 contract KeyValueStorage is Ownable {
 
+    uint256 id;
+
     constructor() public {
         id = 0;
         latestblock = block.number;
@@ -14,6 +16,7 @@ contract KeyValueStorage is Ownable {
 
     //Map _storage address to msg.sender address to data stored on that address.
     mapping(address=> mapping(address => uint256)) OwnedTokens;
+    //Owner personal storage
     mapping(address=> mapping(address => uint256)) OwnedGladiators;
 
     mapping(uint256=>mapping(string=>uint256))ItemsOnGladiator;
@@ -23,9 +26,10 @@ contract KeyValueStorage is Ownable {
     mapping(address => mapping(bytes32 => bool)) _boolStorage;
     mapping(address => mapping(bytes32 => string)) _stringStorage;
 
-    mapping(address => mapping(bytes32  => Monster)) _monsterStorage;
-    mapping(address => mapping(bytes32 => Gladiator)) _gladiatorStorage;
-    mapping(address => mapping(bytes32 => Item)) _itemStorage;
+    mapping(address => mapping(bytes32  => Monster)) public _monsterStorage;
+    //Global storage
+    mapping(address => mapping(bytes32 => Gladiator)) public _gladiatorStorage;
+    mapping(address => mapping(bytes32 => Item)) public _itemStorage;
 
     uint constant GLADIATOR_ID;
     uint public constant MIN_NUM = 1;
@@ -34,7 +38,6 @@ contract KeyValueStorage is Ownable {
     uint256 public totalSupply;
     uint256 public latestblock;
     uint public price;
-    token public tokenReward;
 
     bytes32 private seedHash;
 
@@ -66,12 +69,18 @@ contract KeyValueStorage is Ownable {
         return _monsterStorage[msg.sender][key];
     }
 
+    /*
     function getGladiator(bytes32 key) public view returns (Gladiator) {
         return _gladiatorStorage[msg.sender][key];
+    }*/
+
+    function getGladiator(bytes32 key) public view returns (Gladiator) {
+        emit ShoutGladiatorInfo(key);
+        return _gladiatorStorage[key];
     }
 
     function getItem(bytes32 key) public view returns (Item) {
-        return _itemStorage[msg.sender][key];
+        return _itemStorage[key];
     }
 
     function getGladiatorID() public pure returns (uint256) {
@@ -100,17 +109,19 @@ contract KeyValueStorage is Ownable {
         _boolStorage[msg.sender][key] = value;
     }
 
-    function setMonster(bytes32 key, Monster value) public {
-        _monsterStorage[msg.sender][key] = value;
+    function setMonster(bytes32 key, Monster value) internal {
+        _monsterStorage[key] = value;
     }
 
-    function setGladiator(bytes32 key, Gladiator value) public {
-        _gladiatorStorage[msg.sender][key] = value;
+    function setGladiator(bytes32 key, Gladiator value) internal {
+        _gladiatorStorage[key] = value;
         value.owner.OwnedGladiators[value.id] = value;
     }
 
-    function setItem(bytes32 key, Item value) public {
-        _itemStorage[msg.sender][key] = value;
+    //TODO Change owner of gladiator
+
+    function setItem(bytes32 key, Item value) internal {
+        _itemStorage[key] = value;
     }
 
     function setGladiatorID() private {
@@ -217,7 +228,7 @@ contract KeyValueStorage is Ownable {
         uint256 birth,
         uint256 id,
 
-        mapping(uint => item),
+        mapping(uint => Item[]),
 
         GladiatorState state
     );

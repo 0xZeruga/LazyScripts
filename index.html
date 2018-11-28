@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA_Compatible" content="ie=edge">
     <title>Document</title>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/2.1.1/jquery.min.js"></script>
     <script src="./node_modules/web3/dist/web3.min.js"></script>
 
       <style>
@@ -45,7 +46,7 @@
                     <td><button class="link" onClick="DateSort()"><span style="font-weight:bold">Date Created</span></td>
                     <td><button class="link" onClick="ActionSort()"><span style="font-weight:bold">Currently</span></td>
                 </tr>
-                <tr class="clickable-row" data-href="url://blah">
+                <tr class="clickable-row" id="hej">
                     <td>Test name</td>
                     <td>1</td>
                     <td>01-01-01</td>
@@ -62,36 +63,57 @@
 
 <script>
 
+  //Change so that click ports info
+  $('#characterTable').find('tr').click( function(){
+  var textrow = $(this).find('td:first').text();
+  alert('You clicked ' + textrow);
+
+  var el = document.getElementById("hej");
+  if(el){
+  el.addEventListener('click', resetEmotes, false);
+  }
+  else {
+    console.log(el);
+  }
+
+  function resetEmotes() {
+    console.log("Testing");
+  }
+
+
     if (typeof web3 !== 'undefined') {
-       web3 = new Web3(web3.currentProvider);
-    } 
+       var web3 = new Web3(web3.currentProvider);
+    }
     else {
         // set the provider you want from Web3.providers
-        web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
+        var web3 = new Web3(new Web3.providers.HttpProvider("http://localhost:8545"));
     }
     web3.eth.defaultAccount = web3.eth.accounts[0];
+    console.log(web3.eth.defaultAccount.Balance);
 
-    var ArenaContract = web3.eth.contract("abi");
+/*
+    var abi = JSON.parse('{"contract_name": "Something","abi": [{"constant":true,"inputs":[],"name":"hello","outputs":[{"name":"","type":"bool"}],"type":"function"}]');
+    var ArenaContract = web3.eth.contract(abi);
     var Arena = ArenaContract.at('PASTE CONTRACT ADDRESS HERE');
-    console.log(Arena);
+    console.log(Arena); */
 
     var adr = document.getElementById("address");
     adr.innerHTML = web3.eth.defaultAccount;
 
-    tokens = Arena.GetPlayerBalance(web3.eth.defaultAccount);
-    var bal = document.getElementById("balance");
-    bal.innerHTML = tokens;
+    //tokens = Arena.GetPlayerBalance(web3.eth.defaultAccount);
+  //  var bal = document.getElementById("balance");
+  //  bal.innerHTML = tokens;
 
-    GenerateFrontPage();
+  //  GenerateFrontPage();
 
     var inputElement = document.createElement('input');
     inputElement.type = "button"
     inputElement.addEventListener('click', function(){
     gotoNode(result.name);
     });
+});
 
-​    document.body.appendChild(inputElement);​
-
+  /*
     function GenerateFrontPage() {
         var glads = Arena.GetPlayerGladiators(web3.eth.defaultAccount);
         var gladlength = glads.length;
@@ -101,10 +123,6 @@
         for (i = 0; i < gladlength; i++) {
 
            var row = table.insertRow(-1);
-           $('#character tr').on( 'click', 'tr',function () {
-               GenerateCharacterPage("gladid");
-           });
-
            var name = row.insertCell(0);
            var level = row.insertCell(1);
            var datecreated = row.insertCell(2);
@@ -122,9 +140,14 @@
         }
     }
 
+    $('#character tr').on( 'click', 'tr',function () {
+        GenerateCharacterPage("gladid");
+    });
+  });
+
     function GenerateCharacterPage(id) {
         console.log("ok" + id);
-        //Generate character from id. 
+        //Generate character from id.
     }
 
     function NameSort() {
@@ -141,9 +164,7 @@
 
     function ActionSort() {
         console.log("Action");
-    }
-
+    }*/
 </script>
-
 </body>
 </html>
