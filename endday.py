@@ -13,3 +13,5 @@ print("Rebase complete!")
 print("Pushing...")
 call(["git","push", "origin", "master"])
 print("Push complete!")
+
+raw_input()
